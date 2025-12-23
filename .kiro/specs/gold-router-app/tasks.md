@@ -215,7 +215,11 @@
 
 
 
-- [ ] 7.4 Write property test for connectivity status
+- [x] 7.4 Write property test for connectivity status
+
+
+
+
   - **Property 10: Connectivity loss shows appropriate status**
   - **Validates: Requirements 2.5**
 
