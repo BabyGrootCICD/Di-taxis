@@ -1,0 +1,103 @@
+site_name: Gold Router Docs
+repo_url: https://github.com/<org>/<repo>
+edit_uri: edit/main/docs/
+docs_dir: docs
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - content.action.edit
+markdown_extensions:
+  - admonition
+  - toc:
+      permalink: true
+  - footnotes
+  - tables
+  - fenced_code
+nav:
+  - Home: index.md
+  - Product:
+      - Vision: 00-product/vision.md
+      - Personas: 00-product/personas.md
+      - User Journeys: 00-product/user-journeys.md
+      - PRD: 00-product/prd.md
+      - MVP Scope: 00-product/mvp-scope.md
+      - Glossary: 00-product/glossary.md
+  - Tutorials:
+      - Local dev setup: 10-tutorials/01-local-dev-setup.md
+      - Connect exchange API: 10-tutorials/02-connect-exchange-api.md
+      - Track on-chain balance: 10-tutorials/03-track-onchain-balance.md
+      - Crisis mode dry-run: 10-tutorials/04-crisis-mode-dry-run.md
+  - How-to:
+      - Add exchange connector: 20-how-to/add-new-exchange-connector.md
+      - Add new chain: 20-how-to/add-new-chain.md
+      - Implement price router: 20-how-to/implement-price-router.md
+      - Implement slippage guard: 20-how-to/implement-slippage-guard.md
+      - Rotate keys: 20-how-to/rotate-keys.md
+      - Incident triage: 20-how-to/incident-triage.md
+      - Release: 20-how-to/release.md
+  - Reference:
+      - API:
+          - OpenAPI: 30-reference/api/openapi.yaml
+          - Schemas: 30-reference/api/schemas.md
+          - Errors: 30-reference/api/errors.md
+      - Connectors:
+          - Exchanges:
+              - OKX: 30-reference/connectors/exchanges/okx.md
+              - KuCoin: 30-reference/connectors/exchanges/kucoin.md
+              - Bitfinex: 30-reference/connectors/exchanges/bitfinex.md
+          - On-chain:
+              - Ethereum: 30-reference/connectors/onchain/ethereum.md
+              - TON: 30-reference/connectors/onchain/ton.md
+              - Solana: 30-reference/connectors/onchain/solana.md
+              - Algorand: 30-reference/connectors/onchain/algorand.md
+          - Issuers/platforms:
+              - Tether XAUt: 30-reference/connectors/issuers-platforms/tether-xaut.md
+              - Kinesis KAU: 30-reference/connectors/issuers-platforms/kinesis-kau.md
+              - Meld Gold: 30-reference/connectors/issuers-platforms/meld-gold.md
+      - Risk controls:
+          - Trading controls: 30-reference/risk-controls/trading-controls.md
+          - Withdrawal controls: 30-reference/risk-controls/withdrawal-controls.md
+          - Data controls: 30-reference/risk-controls/data-controls.md
+      - Security:
+          - ASVS mapping: 30-reference/security/asvs-mapping.md
+          - Cryptography: 30-reference/security/cryptography.md
+          - AuthN/AuthZ: 30-reference/security/authn-authz.md
+          - Logging & Audit: 30-reference/security/logging-audit.md
+      - Operations:
+          - SLOs: 30-reference/operations/slos.md
+          - Monitoring: 30-reference/operations/monitoring.md
+          - Metrics: 30-reference/operations/metrics.md
+  - Explanations:
+      - Architecture:
+          - C4 Context: 40-explanations/architecture/c4-context.md
+          - C4 Container: 40-explanations/architecture/c4-container.md
+          - C4 Component: 40-explanations/architecture/c4-component.md
+          - Data flows: 40-explanations/architecture/data-flows.md
+          - Threat model: 40-explanations/architecture/threat-model.md
+      - Product decisions: 40-explanations/product-decisions.md
+      - Compliance notes: 40-explanations/compliance-notes.md
+      - Disaster resilience: 40-explanations/disaster-resilience.md
+  - ADRs:
+      - Use ADR: 50-adr/0000-use-adr.md
+      - Non-custodial first: 50-adr/0001-non-custodial-first.md
+      - Connector interface: 50-adr/0002-exchange-connector-interface.md
+      - On-chain indexing: 50-adr/0003-onchain-indexing-strategy.md
+      - Crisis mode policy engine: 50-adr/0004-crisis-mode-policy-engine.md
+      - Audit log immutability: 50-adr/0005-audit-log-immutability.md
+  - Runbooks:
+      - Incident response: 60-runbooks/incident-response.md
+      - Exchange outage: 60-runbooks/exchange-outage.md
+      - Chain congestion: 60-runbooks/chain-congestion.md
+      - Data breach: 60-runbooks/data-breach.md
+      - DR/BCP: 60-runbooks/dr-bcp.md
+  - Checklists:
+      - Release: 70-checklists/release-checklist.md
+      - Security review: 70-checklists/security-review-checklist.md
+      - Privacy review: 70-checklists/privacy-review-checklist.md
+      - Ops readiness: 70-checklists/ops-readiness-checklist.md
+  - Templates:
+      - ADR template: templates/adr-template.md
+      - Incident template: templates/incident-template.md
+      - RFC template: templates/rfc-template.md
+      - Connector spec template: templates/connector-spec-template.md

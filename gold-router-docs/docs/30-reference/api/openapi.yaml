@@ -1,0 +1,41 @@
+openapi: 3.0.3
+info:
+  title: Gold Router API
+  version: 0.1.0
+  description: |
+    Canonical API for portfolio views, connector status, routing intents, and audit log export.
+servers:
+  - url: http://localhost:8080
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+  /portfolio:
+    get:
+      summary: Get portfolio view (grams-normalized)
+      responses:
+        '200':
+          description: Portfolio response
+  /connectors:
+    get:
+      summary: List connector status
+      responses:
+        '200':
+          description: Connector status list
+  /audit/logs:
+    get:
+      summary: Export audit logs (redacted)
+      responses:
+        '200':
+          description: Audit log export
+components:
+  schemas:
+    Error:
+      type: object
+      properties:
+        code: { type: string }
+        message: { type: string }
+        request_id: { type: string }
