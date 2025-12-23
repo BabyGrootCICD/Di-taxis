@@ -141,7 +141,12 @@
   - **Validates: Requirements 3.1**
 
 
-- [ ] 5.2 Write property test for structured error responses
+- [x] 5.2 Write property test for structured error responses
+
+
+
+
+
   - **Property 38: Errors provide structured responses**
   - **Validates: Requirements 8.4**
 
