@@ -177,7 +177,7 @@ export class SecurityManager {
    */
   encryptSensitiveData(data: string): string {
     const iv = crypto.randomBytes(this.ivLength);
-    const cipher = crypto.createCipher(this.algorithm, this.masterKey);
+    const cipher = crypto.createCipheriv(this.algorithm, this.masterKey, iv);
     
     const encrypted = Buffer.concat([
       cipher.update(data, 'utf8'),
@@ -194,9 +194,10 @@ export class SecurityManager {
   decryptSensitiveData(encryptedData: string): string {
     const [ivB64, dataB64] = encryptedData.split(':');
     
+    const iv = Buffer.from(ivB64, 'base64');
     const encrypted = Buffer.from(dataB64, 'base64');
     
-    const decipher = crypto.createDecipher(this.algorithm, this.masterKey);
+    const decipher = crypto.createDecipheriv(this.algorithm, this.masterKey, iv);
     
     return decipher.update(encrypted, undefined, 'utf8') + decipher.final('utf8');
   }

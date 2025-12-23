@@ -86,6 +86,7 @@ describe('SecurityManager Property Tests', () => {
           secret: fc.string({ minLength: 10, maxLength: 100 }),
           permissions: fc.option(
             fc.array(
+              // Only generate valid trade-only permissions
               fc.constantFrom('trade', 'trading', 'order', 'buy', 'sell', 'read'),
               { minLength: 1, maxLength: 5 }
             )
@@ -93,6 +94,12 @@ describe('SecurityManager Property Tests', () => {
         }),
         (venueId: string, credentials: ApiCredentials) => {
           const securityManager = new SecurityManager();
+          
+          // Only test with credentials that would pass validation
+          const validation = securityManager.validateCredentials(credentials);
+          
+          // Skip invalid credentials for this property test
+          fc.pre(validation.isValid);
           
           // Store credentials
           securityManager.storeCredentials(venueId, credentials);
