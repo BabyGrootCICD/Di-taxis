@@ -21,7 +21,7 @@ describe('Portfolio Data Models - Property Tests', () => {
     const goldTokenArb = fc.constantFrom('XAUt', 'KAU', 'xaut', 'kau');
     
     // Generator for positive token balances
-    const balanceArb = fc.float({ min: 0.000001, max: 1000000, noNaN: true });
+    const balanceArb = fc.float({ min: Math.fround(0.000001), max: Math.fround(1000000), noNaN: true });
     
     // Generator for TokenHolding
     const tokenHoldingArb = fc.record({
