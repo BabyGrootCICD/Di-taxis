@@ -109,14 +109,14 @@ export class SecurityManager {
     const iv = crypto.randomBytes(this.ivLength);
     
     // Encrypt API key
-    const apiKeyCipher = crypto.createCipher(this.algorithm, this.masterKey);
+    const apiKeyCipher = crypto.createCipheriv(this.algorithm, this.masterKey, iv);
     const encryptedApiKey = Buffer.concat([
       apiKeyCipher.update(credentials.apiKey, 'utf8'),
       apiKeyCipher.final()
     ]).toString('base64');
 
     // Encrypt secret
-    const secretCipher = crypto.createCipher(this.algorithm, this.masterKey);
+    const secretCipher = crypto.createCipheriv(this.algorithm, this.masterKey, iv);
     const encryptedSecret = Buffer.concat([
       secretCipher.update(credentials.secret, 'utf8'),
       secretCipher.final()
@@ -145,13 +145,15 @@ export class SecurityManager {
     }
 
     try {
+      const iv = Buffer.from(stored.iv, 'base64');
+
       // Decrypt API key
-      const apiKeyDecipher = crypto.createDecipher(this.algorithm, this.masterKey);
+      const apiKeyDecipher = crypto.createDecipheriv(this.algorithm, this.masterKey, iv);
       const apiKey = apiKeyDecipher.update(stored.encryptedApiKey, 'base64', 'utf8') + 
                      apiKeyDecipher.final('utf8');
 
       // Decrypt secret
-      const secretDecipher = crypto.createDecipher(this.algorithm, this.masterKey);
+      const secretDecipher = crypto.createDecipheriv(this.algorithm, this.masterKey, iv);
       const secret = secretDecipher.update(stored.encryptedSecret, 'base64', 'utf8') + 
                      secretDecipher.final('utf8');
 
