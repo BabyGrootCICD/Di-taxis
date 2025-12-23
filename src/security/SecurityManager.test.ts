@@ -30,7 +30,8 @@ describe('SecurityManager Property Tests', () => {
                 fc.string({ minLength: 3, maxLength: 20 })
               ),
               { minLength: 0, maxLength: 10 }
-            )
+            ),
+            { nil: undefined }
           )
         }),
         (credentials: ApiCredentials) => {
@@ -89,7 +90,8 @@ describe('SecurityManager Property Tests', () => {
               // Only generate valid trade-only permissions
               fc.constantFrom('trade', 'trading', 'order', 'buy', 'sell', 'read'),
               { minLength: 1, maxLength: 5 }
-            )
+            ),
+            { nil: undefined }
           )
         }),
         (venueId: string, credentials: ApiCredentials) => {
@@ -139,7 +141,8 @@ describe('SecurityManager Property Tests', () => {
                 fc.constantFrom('withdraw', 'withdrawal', 'transfer', 'send')
               ),
               { minLength: 1, maxLength: 5 }
-            )
+            ),
+            { nil: undefined }
           )
         }),
         (venueId: string, credentials: ApiCredentials) => {
