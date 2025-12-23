@@ -223,26 +223,38 @@
   - **Property 10: Connectivity loss shows appropriate status**
   - **Validates: Requirements 2.5**
 
-- [ ] 8. Implement Trading Engine with risk controls
+- [x] 8. Implement Trading Engine with risk controls
+
+
+
+
   - Create Trading Engine class for order management and execution
   - Implement slippage guard with configurable thresholds
   - Add intelligent venue routing for optimal execution
   - Implement order state management and execution tracking
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
 
-- [ ] 8.1 Write property test for slippage protection
+- [x] 8.1 Write property test for slippage protection
+
+
   - **Property 12: Slippage guard prevents excessive slippage**
   - **Validates: Requirements 3.2**
 
-- [ ] 8.2 Write property test for execution auditing
+- [x] 8.2 Write property test for execution auditing
+
+
   - **Property 13: Order executions are audited**
   - **Validates: Requirements 3.3**
 
-- [ ] 8.3 Write property test for state consistency
+- [x] 8.3 Write property test for state consistency
+
+
   - **Property 14: Order failures maintain system state**
   - **Validates: Requirements 3.4**
 
-- [ ] 8.4 Write property test for venue optimization
+- [x] 8.4 Write property test for venue optimization
+
+
   - **Property 15: Multi-venue routing optimizes execution**
   - **Validates: Requirements 3.5**
 
