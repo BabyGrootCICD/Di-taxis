@@ -1,0 +1,46 @@
+{
+  "name": "gold-router-app",
+  "version": "1.0.0",
+  "description": "A non-custodial fintech application for gold-backed token trading",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node src/index.ts",
+    "test": "vitest --run",
+    "test:watch": "vitest",
+    "test:pbt": "vitest --run --reporter=verbose",
+    "lint": "eslint src/**/*.ts",
+    "clean": "rimraf dist"
+  },
+  "keywords": [
+    "fintech",
+    "gold",
+    "trading",
+    "non-custodial"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.19.27",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.0.0",
+    "fast-check": "^3.23.2",
+    "rimraf": "^5.0.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.9.3",
+    "vitest": "^1.6.1"
+  },
+  "dependencies": {
+    "crypto": "^1.0.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BabyGrootCICD/Di-taxis.git"
+  },
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/BabyGrootCICD/Di-taxis/issues"
+  },
+  "homepage": "https://github.com/BabyGrootCICD/Di-taxis#readme"
+}
