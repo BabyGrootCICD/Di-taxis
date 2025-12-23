@@ -183,24 +183,37 @@
   - **Property 19: Chain connectivity loss triggers retries**
   - **Validates: Requirements 4.4**
 
-- [ ] 7. Implement Portfolio Service with multi-venue aggregation
+- [x] 7. Implement Portfolio Service with multi-venue aggregation
+
+
+
+
+
   - Create Portfolio Service class for unified portfolio management
   - Implement gold token normalization logic (XAUt and KAU conversions)
   - Add portfolio view refresh mechanisms and status tracking
   - Implement venue connectivity status indicators
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
 
-- [ ] 7.1 Write property test for XAUt conversion
+- [x] 7.1 Write property test for XAUt conversion
+
+
   - **Property 7: XAUt conversion uses correct factor**
   - **Validates: Requirements 2.2**
 
-- [ ] 7.2 Write property test for KAU display
+- [x] 7.2 Write property test for KAU display
+
+
   - **Property 8: KAU values display without conversion**
   - **Validates: Requirements 2.3**
 
-- [ ] 7.3 Write property test for portfolio refresh
+- [x] 7.3 Write property test for portfolio refresh
+
+
   - **Property 9: Portfolio updates trigger view refresh**
   - **Validates: Requirements 2.4**
+
+
 
 - [ ] 7.4 Write property test for connectivity status
   - **Property 10: Connectivity loss shows appropriate status**
