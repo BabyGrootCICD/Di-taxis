@@ -399,15 +399,21 @@ export abstract class BaseExchangeConnector implements IExchangeConnector {
    */
   protected validateCredentials(credentials: ExchangeCredentials): void {
     if (!credentials.apiKey || !credentials.secret) {
-      throw new Error('Invalid credentials: API key and secret are required');
+      const error = new Error('Invalid credentials: API key and secret are required');
+      error.name = 'AUTHENTICATION_ERROR';
+      throw error;
     }
     
     if (credentials.apiKey.length < 10) {
-      throw new Error('Invalid credentials: API key appears to be too short');
+      const error = new Error('Invalid credentials: API key appears to be too short');
+      error.name = 'AUTHENTICATION_ERROR';
+      throw error;
     }
     
     if (credentials.secret.length < 10) {
-      throw new Error('Invalid credentials: Secret appears to be too short');
+      const error = new Error('Invalid credentials: Secret appears to be too short');
+      error.name = 'AUTHENTICATION_ERROR';
+      throw error;
     }
   }
 }

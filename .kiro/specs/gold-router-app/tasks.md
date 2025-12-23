@@ -122,16 +122,24 @@
   - **Property 32: Circuit breakers halt abnormal operations**
   - **Validates: Requirements 7.3**
 
-- [ ] 5. Implement specific exchange connectors (Bitfinex as primary example)
+- [x] 5. Implement specific exchange connectors (Bitfinex as primary example)
+
+
+
+
+
   - Create Bitfinex connector implementing the Exchange Connector interface
   - Add authentication, order placement, and market data retrieval
   - Implement exchange-specific error mapping and handling
   - Add comprehensive logging and monitoring integration
   - _Requirements: 3.1, 3.4, 8.4_
 
-- [ ] 5.1 Write property test for order routing
+- [x] 5.1 Write property test for order routing
+
+
   - **Property 11: Orders route to appropriate connectors**
   - **Validates: Requirements 3.1**
+
 
 - [ ] 5.2 Write property test for structured error responses
   - **Property 38: Errors provide structured responses**

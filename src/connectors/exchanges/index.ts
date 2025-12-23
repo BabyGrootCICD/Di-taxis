@@ -1,2 +1,2 @@
 // Exchange-specific connector implementations
-export * from './BitfinexConnector';
+export { BitfinexConnector } from './BitfinexConnector';
