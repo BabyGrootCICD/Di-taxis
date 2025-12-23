@@ -45,3 +45,6 @@ temp/
 
 # Test files (temporary)
 test-simple.js
+
+# node_modules
+node_modules
