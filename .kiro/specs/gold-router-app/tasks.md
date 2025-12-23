@@ -150,26 +150,36 @@
   - **Property 38: Errors provide structured responses**
   - **Validates: Requirements 8.4**
 
-- [ ] 6. Implement On-Chain Tracker interface and Ethereum implementation
+- [x] 6. Implement On-Chain Tracker interface and Ethereum implementation
+
+
+
+
+
   - Define On-Chain Tracker interface for blockchain monitoring
   - Create Ethereum tracker with balance querying and transfer detection
   - Implement confirmation threshold management and status tracking
   - Add blockchain connectivity resilience with retry mechanisms
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
 
-- [ ] 6.1 Write property test for balance querying
+- [x] 6.1 Write property test for balance querying
+
+
   - **Property 16: Blockchain balances are queried correctly**
   - **Validates: Requirements 4.1**
 
-- [ ] 6.2 Write property test for transfer recording
+- [x] 6.2 Write property test for transfer recording
+
   - **Property 17: Transfer details are completely recorded**
   - **Validates: Requirements 4.2**
 
-- [ ] 6.3 Write property test for confirmation tracking
+- [x] 6.3 Write property test for confirmation tracking
+
   - **Property 18: Confirmation thresholds update balance status**
   - **Validates: Requirements 4.3**
 
-- [ ] 6.4 Write property test for connectivity resilience
+- [x] 6.4 Write property test for connectivity resilience
+
   - **Property 19: Chain connectivity loss triggers retries**
   - **Validates: Requirements 4.4**
 
