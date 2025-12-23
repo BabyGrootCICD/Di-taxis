@@ -28,7 +28,8 @@
   - Implement access control mechanisms for credential retrieval
   - _Requirements: 1.1, 1.2, 7.1, 7.4_
 
-- [ ] 2.1 Write property test for credential validation
+- [-] 2.1 Write property test for credential validation
+
   - **Property 1: API credential validation enforces trade-only permissions**
   - **Validates: Requirements 1.1**
 
