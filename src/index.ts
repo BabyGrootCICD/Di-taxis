@@ -8,6 +8,7 @@ export * from './services';
 export * from './connectors';
 export * from './security';
 export * from './api';
+export * from './config';
 
 // Application version and metadata
 export const APP_VERSION = '1.0.0';

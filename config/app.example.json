@@ -1,0 +1,64 @@
+{
+  "environment": "development",
+  "version": "1.0.0",
+  "port": 3000,
+  "host": "localhost",
+  "logLevel": "info",
+  "database": {
+    "host": "localhost",
+    "port": 5432,
+    "database": "gold_router",
+    "username": "app_user",
+    "password": "secure_password",
+    "ssl": true,
+    "connectionTimeout": 30000,
+    "maxConnections": 10
+  },
+  "security": {
+    "encryptionAlgorithm": "aes-256-cbc",
+    "keyLength": 32,
+    "sessionTimeout": 3600000,
+    "maxLoginAttempts": 5,
+    "passwordMinLength": 12,
+    "enableTwoFactor": true
+  },
+  "trading": {
+    "defaultSlippagePercent": 1.0,
+    "maxSlippagePercent": 5.0,
+    "orderTimeoutMs": 30000,
+    "maxOrderRetries": 3,
+    "enableSlippageProtection": true,
+    "maxOrderSize": 1000000
+  },
+  "monitoring": {
+    "healthCheckInterval": 30000,
+    "metricsRetentionDays": 30,
+    "alertThresholds": {
+      "errorRate": 5.0,
+      "responseTime": 2000,
+      "memoryUsage": 80.0,
+      "cpuUsage": 75.0
+    },
+    "enableDetailedLogging": false
+  },
+  "exchanges": {
+    "bitfinex": {
+      "name": "Bitfinex",
+      "apiUrl": "https://api.bitfinex.com",
+      "websocketUrl": "wss://api.bitfinex.com/ws/2",
+      "rateLimitPerSecond": 10,
+      "timeout": 10000,
+      "retryAttempts": 3,
+      "enabled": true
+    }
+  },
+  "blockchain": {
+    "ethereum": {
+      "rpcUrl": "https://mainnet.infura.io/v3/YOUR_PROJECT_ID",
+      "confirmationThreshold": 12,
+      "blockTime": 15000,
+      "gasLimit": 200000,
+      "enabled": true
+    }
+  }
+}
