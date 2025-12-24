@@ -174,6 +174,106 @@ describe('AuditService', () => {
     });
 
     /**
+     * Feature: gold-router-app, Property 29: Audit exports use structured format
+     * Validates: Requirements 6.4
+     */
+    it('should export audit logs in structured machine-readable format', () => {
+      fc.assert(
+        fc.property(
+          fc.array(
+            fc.record({
+              eventType: fc.string({ minLength: 3, maxLength: 30 }),
+              details: fc.record({
+                action: fc.string({ minLength: 1, maxLength: 50 }),
+                value: fc.oneof(fc.string(), fc.integer(), fc.boolean()),
+                metadata: fc.option(fc.record({
+                  source: fc.string(),
+                  category: fc.string()
+                }))
+              }),
+              userId: fc.option(fc.string({ minLength: 3, maxLength: 20 })),
+              venueId: fc.option(fc.string({ minLength: 3, maxLength: 20 }))
+            }),
+            { minLength: 1, maxLength: 15 }
+          ),
+          (auditEvents) => {
+            // Clear log before test
+            auditService.clearLog();
+
+            // Log all events
+            for (const event of auditEvents) {
+              auditService.logSecurityEvent(
+                event.eventType,
+                event.details,
+                event.userId || undefined,
+                event.venueId || undefined
+              );
+            }
+
+            // Export audit log
+            const exportedEvents = auditService.exportAuditLog();
+
+            // Verify structured format compliance
+            expect(Array.isArray(exportedEvents)).toBe(true);
+            expect(exportedEvents).toHaveLength(auditEvents.length);
+
+            // Verify each exported event has the required structured format
+            exportedEvents.forEach((exportedEvent, index) => {
+              // Required fields must be present and have correct types
+              expect(exportedEvent).toHaveProperty('eventId');
+              expect(typeof exportedEvent.eventId).toBe('string');
+              expect(exportedEvent.eventId.length).toBeGreaterThan(0);
+
+              expect(exportedEvent).toHaveProperty('timestamp');
+              expect(exportedEvent.timestamp).toBeInstanceOf(Date);
+
+              expect(exportedEvent).toHaveProperty('eventType');
+              expect(typeof exportedEvent.eventType).toBe('string');
+              expect(exportedEvent.eventType).toBe(auditEvents[index].eventType);
+
+              expect(exportedEvent).toHaveProperty('details');
+              expect(typeof exportedEvent.details).toBe('object');
+              expect(exportedEvent.details).not.toBeNull();
+
+              expect(exportedEvent).toHaveProperty('signature');
+              expect(typeof exportedEvent.signature).toBe('string');
+              expect(exportedEvent.signature.length).toBeGreaterThan(0);
+
+              // Optional fields should have correct types when present
+              if (exportedEvent.userId !== undefined) {
+                expect(typeof exportedEvent.userId).toBe('string');
+              }
+              if (exportedEvent.venueId !== undefined) {
+                expect(typeof exportedEvent.venueId).toBe('string');
+              }
+
+              // Verify the exported event can be serialized to JSON (machine-readable)
+              expect(() => JSON.stringify(exportedEvent)).not.toThrow();
+              
+              // Verify the JSON can be parsed back (round-trip test for structured format)
+              const jsonString = JSON.stringify(exportedEvent);
+              const parsedEvent = JSON.parse(jsonString);
+              
+              expect(parsedEvent.eventId).toBe(exportedEvent.eventId);
+              expect(parsedEvent.eventType).toBe(exportedEvent.eventType);
+              expect(parsedEvent.signature).toBe(exportedEvent.signature);
+              expect(parsedEvent.details).toEqual(exportedEvent.details);
+            });
+
+            // Verify the entire export can be serialized as structured data
+            const fullExportJson = JSON.stringify(exportedEvents);
+            expect(() => JSON.parse(fullExportJson)).not.toThrow();
+            
+            const parsedExport = JSON.parse(fullExportJson);
+            expect(Array.isArray(parsedExport)).toBe(true);
+            expect(parsedExport).toHaveLength(auditEvents.length);
+          }
+        ),
+        { numRuns: 100 }
+      );
+    });
+
+    /**
      * Feature: gold-router-app, Property 30: Audit logs include integrity protection
      * Validates: Requirements 6.5
      */

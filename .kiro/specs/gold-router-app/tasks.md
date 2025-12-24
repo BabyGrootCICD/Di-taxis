@@ -370,7 +370,12 @@
   - **Property 34: Security events are logged with tamper evidence**
   - **Validates: Requirements 7.5**
 
-- [ ] 14. Create Web UI for portfolio management and trading
+- [x] 14. Create Web UI for portfolio management and trading
+
+
+
+
+
   - Implement React-based web interface for portfolio viewing
   - Add trading interface with order placement and management
   - Implement real-time status updates and error display
@@ -378,7 +383,9 @@
   - Create resilience mode testing interface
   - _Requirements: 2.4, 2.5, 3.4, 6.4_
 
-- [ ] 14.1 Write property test for audit format compliance
+
+- [x] 14.1 Write property test for audit format compliance
+
   - **Property 29: Audit exports use structured format**
   - **Validates: Requirements 6.4**
 

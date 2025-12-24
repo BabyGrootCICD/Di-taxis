@@ -6,6 +6,8 @@
   "scripts": {
     "build": "tsc",
     "dev": "ts-node src/index.ts",
+    "web": "node src/web/simple-server.js",
+    "web-ts": "ts-node src/web/server.ts",
     "test": "vitest --run",
     "test:watch": "vitest",
     "test:pbt": "vitest --run --reporter=verbose",
@@ -32,7 +34,11 @@
     "vitest": "^1.6.1"
   },
   "dependencies": {
-    "crypto": "^1.0.1"
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "crypto": "^1.0.1",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3"
   },
   "repository": {
     "type": "git",
