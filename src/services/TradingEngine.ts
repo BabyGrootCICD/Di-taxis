@@ -6,6 +6,9 @@
 import { Order, OrderSide, OrderStatus, Fill } from '../models/Order';
 import { IExchangeConnector, PlaceOrderParams, PlaceOrderResult } from '../connectors/ExchangeConnector';
 import { AuditService } from './AuditService';
+import { ErrorHandler, ApplicationError, ErrorCategory, ErrorSeverity, withErrorHandling } from '../utils/ErrorHandler';
+import { StateRecoveryManager } from '../utils/StateRecoveryManager';
+import { GracefulDegradationManager, ServiceCapability } from '../utils/GracefulDegradationManager';
 import { ConnectorStatus } from '../models/ConnectorStatus';
 
 export interface SlippageGuardConfig {
@@ -33,6 +36,9 @@ export class TradingEngine {
   private orders: Map<string, Order> = new Map();
   private auditService: AuditService;
   private config: TradingEngineConfig;
+  private errorHandler: ErrorHandler;
+  private stateRecoveryManager: StateRecoveryManager;
+  private degradationManager: GracefulDegradationManager;
 
   constructor(
     auditService: AuditService,
@@ -43,10 +49,18 @@ export class TradingEngine {
       },
       maxOrderRetries: 3,
       orderTimeoutMs: 30000
-    }
+    },
+    errorHandler?: ErrorHandler,
+    stateRecoveryManager?: StateRecoveryManager,
+    degradationManager?: GracefulDegradationManager
   ) {
     this.auditService = auditService;
     this.config = config;
+    this.errorHandler = errorHandler || new ErrorHandler();
+    this.stateRecoveryManager = stateRecoveryManager || new StateRecoveryManager(auditService);
+    this.degradationManager = degradationManager || new GracefulDegradationManager(auditService);
+    
+    this.initializeErrorHandling();
   }
 
   /**
@@ -67,100 +81,137 @@ export class TradingEngine {
     slippageLimit: number,
     userId?: string
   ): Promise<Order> {
-    // Generate order ID
-    const orderId = this.generateOrderId();
-    
-    // Create order object
-    const order: Order = {
-      orderId,
-      venueId: '', // Will be set after venue selection
-      symbol,
-      side,
-      orderType: 'limit',
-      quantity,
-      price,
-      slippageLimit,
-      status: 'pending',
-      createdAt: new Date(),
-      fills: []
-    };
+    return this.degradationManager.executeWithDegradation(
+      ServiceCapability.TRADING,
+      async () => {
+        return this.errorHandler.handleError(
+          async () => {
+            // Generate order ID
+            const orderId = this.generateOrderId();
+            
+            // Create order object
+            const order: Order = {
+              orderId,
+              venueId: '', // Will be set after venue selection
+              symbol,
+              side,
+              orderType: 'limit',
+              quantity,
+              price,
+              slippageLimit,
+              status: 'pending',
+              createdAt: new Date(),
+              fills: []
+            };
 
-    try {
-      // Apply slippage guard
-      if (this.config.slippageGuard.enableSlippageProtection) {
-        await this.applySlippageGuard(symbol, side, price, slippageLimit);
+            try {
+              // Apply slippage guard
+              if (this.config.slippageGuard.enableSlippageProtection) {
+                await this.applySlippageGuard(symbol, side, price, slippageLimit);
+              }
+
+              // Select optimal venue
+              const selectedVenue = await this.selectOptimalVenue(symbol, side, quantity, price);
+              order.venueId = selectedVenue;
+
+              // Store order
+              this.orders.set(orderId, order);
+
+              // Execute order
+              const connector = this.connectors.get(selectedVenue);
+              if (!connector) {
+                throw new ApplicationError(
+                  `Connector not found for venue: ${selectedVenue}`,
+                  'CONNECTOR_NOT_FOUND',
+                  ErrorCategory.SYSTEM,
+                  ErrorSeverity.HIGH,
+                  {
+                    operation: 'placeLimitOrder',
+                    component: 'TradingEngine',
+                    venueId: selectedVenue,
+                    timestamp: new Date()
+                  }
+                );
+              }
+
+              const orderParams: PlaceOrderParams = {
+                symbol,
+                side,
+                quantity,
+                price,
+                orderType: 'limit'
+              };
+
+              const result = await connector.placeLimitOrder(orderParams);
+              
+              // Update order with execution result
+              order.status = result.status;
+              order.executedAt = result.timestamp;
+
+              // Log trade execution
+              this.auditService.logTradeExecution(
+                {
+                  orderId: order.orderId,
+                  symbol: order.symbol,
+                  side: order.side,
+                  quantity: order.quantity,
+                  price: order.price,
+                  slippageLimit: order.slippageLimit
+                },
+                {
+                  venueOrderId: result.orderId,
+                  status: result.status,
+                  executedAt: result.timestamp
+                },
+                userId,
+                selectedVenue
+              );
+
+              return order;
+
+            } catch (error) {
+              // Update order status to rejected
+              order.status = 'rejected';
+              this.orders.set(orderId, order);
+
+              // Log failed execution
+              this.auditService.logSecurityEvent(
+                'ORDER_EXECUTION_FAILED',
+                {
+                  orderId: order.orderId,
+                  symbol: order.symbol,
+                  side: order.side,
+                  quantity: order.quantity,
+                  price: order.price,
+                  error: error instanceof Error ? error.message : 'Unknown error'
+                },
+                userId,
+                order.venueId
+              );
+
+              throw error;
+            }
+          },
+          {
+            operation: 'placeLimitOrder',
+            component: 'TradingEngine',
+            userId,
+            timestamp: new Date(),
+            metadata: { symbol, side, quantity, price }
+          }
+        ).then(result => {
+          if (!result.success) {
+            throw result.error;
+          }
+          return result.result;
+        });
+      },
+      {
+        operation: 'placeLimitOrder',
+        component: 'TradingEngine',
+        userId
       }
-
-      // Select optimal venue
-      const selectedVenue = await this.selectOptimalVenue(symbol, side, quantity, price);
-      order.venueId = selectedVenue;
-
-      // Store order
-      this.orders.set(orderId, order);
-
-      // Execute order
-      const connector = this.connectors.get(selectedVenue);
-      if (!connector) {
-        throw new Error(`Connector not found for venue: ${selectedVenue}`);
-      }
-
-      const orderParams: PlaceOrderParams = {
-        symbol,
-        side,
-        quantity,
-        price,
-        orderType: 'limit'
-      };
-
-      const result = await connector.placeLimitOrder(orderParams);
-      
-      // Update order with execution result
-      order.status = result.status;
-      order.executedAt = result.timestamp;
-
-      // Log trade execution
-      this.auditService.logTradeExecution(
-        {
-          orderId: order.orderId,
-          symbol: order.symbol,
-          side: order.side,
-          quantity: order.quantity,
-          price: order.price,
-          slippageLimit: order.slippageLimit
-        },
-        {
-          venueOrderId: result.orderId,
-          status: result.status,
-          executedAt: result.timestamp
-        },
-        userId,
-        selectedVenue
-      );
-
-      return order;
-
-    } catch (error) {
-      // Update order status to rejected
-      order.status = 'rejected';
-      this.orders.set(orderId, order);
-
-      // Log failed execution
-      this.auditService.logSecurityEvent(
-        'ORDER_EXECUTION_FAILED',
-        {
-          orderId: order.orderId,
-          symbol: order.symbol,
-          side: order.side,
-          quantity: order.quantity,
-          price: order.price,
-          error: error instanceof Error ? error.message : 'Unknown error'
-        },
-        userId,
-        order.venueId
-      );
-
-      throw error;
-    }
+    );
   }
 
   /**
@@ -451,5 +502,123 @@ export class TradingEngine {
    */
   getConfig(): TradingEngineConfig {
     return { ...this.config };
+  }
+
+  /**
+   * Initializes error handling strategies
+   */
+  private initializeErrorHandling(): void {
+    // Register recovery strategies for trading operations
+    this.errorHandler.registerRecoveryStrategy('placeLimitOrder', {
+      strategy: 'retry' as any,
+      maxAttempts: this.config.maxOrderRetries,
+      backoffMs: 2000,
+      fallbackFunction: async () => {
+        // Try alternative venue if available
+        const healthyVenues = await this.getHealthyVenues();
+        if (healthyVenues.length > 1) {
+          throw new ApplicationError(
+            'Primary venue failed, retry with venue selection',
+            'VENUE_FAILOVER',
+            ErrorCategory.EXTERNAL_SERVICE,
+            ErrorSeverity.MEDIUM,
+            {
+              operation: 'placeLimitOrder',
+              component: 'TradingEngine',
+              timestamp: new Date()
+            },
+            { isRetryable: true }
+          );
+        }
+        throw new ApplicationError(
+          'No alternative venues available',
+          'NO_VENUES_AVAILABLE',
+          ErrorCategory.EXTERNAL_SERVICE,
+          ErrorSeverity.HIGH,
+          {
+            operation: 'placeLimitOrder',
+            component: 'TradingEngine',
+            timestamp: new Date()
+          }
+        );
+      }
+    });
+
+    this.errorHandler.registerRecoveryStrategy('getHealthyVenues', {
+      strategy: 'retry' as any,
+      maxAttempts: 2,
+      backoffMs: 1000,
+      degradedFunction: async () => {
+        // Return all registered venues as fallback
+        return Array.from(this.connectors.keys());
+      }
+    });
+  }
+
+  /**
+   * Gets current state for recovery purposes
+   */
+  async getState(): Promise<Record<string, any>> {
+    return {
+      orders: Object.fromEntries(this.orders),
+      connectors: Array.from(this.connectors.keys()),
+      config: this.config,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  /**
+   * Restores state from recovery data
+   */
+  async setState(state: Record<string, any>): Promise<void> {
+    if (state.orders) {
+      this.orders = new Map(Object.entries(state.orders));
+    }
+    if (state.config) {
+      this.config = { ...this.config, ...state.config };
+    }
+  }
+
+  /**
+   * Creates a recovery point
+   */
+  async createRecoveryPoint(description: string): Promise<string> {
+    const components = new Map([['TradingEngine', this]]);
+    const snapshotId = await this.stateRecoveryManager.createStateSnapshot(components, {
+      description,
+      orderCount: this.orders.size,
+      connectorCount: this.connectors.size
+    });
+    
+    return this.stateRecoveryManager.createRecoveryPoint(snapshotId, description);
+  }
+
+  /**
+   * Recovers from a specific recovery point
+   */
+  async recoverFromPoint(recoveryPointId: string): Promise<void> {
+    const components = new Map([['TradingEngine', this]]);
+    const result = await this.stateRecoveryManager.recoverFromPoint(recoveryPointId, components);
+    
+    if (!result.success) {
+      throw new ApplicationError(
+        `Recovery failed: ${result.errors.map(e => e.message).join(', ')}`,
+        'RECOVERY_FAILED',
+        ErrorCategory.SYSTEM,
+        ErrorSeverity.HIGH,
+        {
+          operation: 'recoverFromPoint',
+          component: 'TradingEngine',
+          timestamp: new Date()
+        }
+      );
+    }
+
+    // Log successful recovery
+    this.auditService.logSecurityEvent('TRADING_ENGINE_RECOVERED', {
+      recoveryPointId,
+      recoveredComponents: result.recoveredComponents,
+      timestamp: new Date().toISOString()
+    });
   }
 }

@@ -5,3 +5,4 @@ export * from './AuditService';
 export * from './ResilienceManager';
 export * from './MonitoringService';
 export * from './ConfigurationService';
+export * from './SystemRecoveryService';

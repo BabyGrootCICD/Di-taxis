@@ -5,6 +5,8 @@
 
 import { Order, OrderSide, OrderStatus } from '../models/Order';
 import { ConnectorStatus } from '../models/ConnectorStatus';
+import { ErrorHandler, ApplicationError, ErrorCategory, ErrorSeverity } from '../utils/ErrorHandler';
+import { GracefulDegradationManager, ServiceCapability } from '../utils/GracefulDegradationManager';
 
 export interface ExchangeCredentials {
   apiKey: string;

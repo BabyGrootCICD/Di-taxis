@@ -8,6 +8,10 @@ import { IExchangeConnector, Balance } from '../connectors/ExchangeConnector';
 import { IOnChainTracker, TokenBalance } from '../connectors/OnChainTracker';
 import { ConnectorStatus } from '../models/ConnectorStatus';
 import { normalizeToGrams, XAUT_TO_GRAMS_FACTOR } from '../utils/goldConversions';
+import { ErrorHandler, ApplicationError, ErrorCategory, ErrorSeverity } from '../utils/ErrorHandler';
+import { GracefulDegradationManager, ServiceCapability } from '../utils/GracefulDegradationManager';
+import { StateRecoveryManager } from '../utils/StateRecoveryManager';
+import { AuditService } from './AuditService';
 
 export interface VenueConnector {
   id: string;
@@ -29,6 +33,24 @@ export class PortfolioService {
   private cachedPortfolio: Portfolio | null = null;
   private lastRefresh: Date | null = null;
   private refreshInProgress: boolean = false;
+  private errorHandler: ErrorHandler;
+  private degradationManager: GracefulDegradationManager;
+  private stateRecoveryManager: StateRecoveryManager;
+  private auditService: AuditService;
+
+  constructor(
+    auditService: AuditService,
+    errorHandler?: ErrorHandler,
+    degradationManager?: GracefulDegradationManager,
+    stateRecoveryManager?: StateRecoveryManager
+  ) {
+    this.auditService = auditService;
+    this.errorHandler = errorHandler || new ErrorHandler();
+    this.degradationManager = degradationManager || new GracefulDegradationManager(auditService);
+    this.stateRecoveryManager = stateRecoveryManager || new StateRecoveryManager(auditService);
+    
+    this.initializeErrorHandling();
+  }
 
   /**
    * Register a venue connector for portfolio aggregation
@@ -66,19 +88,48 @@ export class PortfolioService {
    * Get current portfolio with all holdings normalized to grams
    */
   async getPortfolio(options: PortfolioRefreshOptions = {}): Promise<Portfolio> {
-    // Return cached portfolio if available and not forcing refresh
-    if (!options.forceRefresh && this.cachedPortfolio && this.lastRefresh) {
-      const cacheAge = Date.now() - this.lastRefresh.getTime();
-      // Use cache if less than 30 seconds old
-      if (cacheAge < 30000) {
-        return this.cachedPortfolio;
-      }
-    }
+    return this.degradationManager.executeWithDegradation(
+      ServiceCapability.PORTFOLIO_VIEW,
+      async () => {
+        return this.errorHandler.handleError(
+          async () => {
+            // Return cached portfolio if available and not forcing refresh
+            if (!options.forceRefresh && this.cachedPortfolio && this.lastRefresh) {
+              const cacheAge = Date.now() - this.lastRefresh.getTime();
+              // Use cache if less than 30 seconds old
+              if (cacheAge < 30000) {
+                return this.cachedPortfolio;
+              }
+            }
 
-    // Refresh portfolio data
-    await this.refreshBalances(options);
-    
-    return this.cachedPortfolio || this.createEmptyPortfolio();
+            // Refresh portfolio data
+            await this.refreshBalances(options);
+            
+            return this.cachedPortfolio || this.createEmptyPortfolio();
+          },
+          {
+            operation: 'getPortfolio',
+            component: 'PortfolioService',
+            timestamp: new Date()
+          }
+        ).then(result => {
+          if (!result.success) {
+            throw result.error;
+          }
+          
+          // Cache successful result for fallback
+          if (result.result) {
+            this.degradationManager.cacheFallbackData('portfolio', result.result, 'PortfolioService');
+          }
+          
+          return result.result;
+        });
+      },
+      {
+        operation: 'getPortfolio',
+        component: 'PortfolioService'
+      }
+    );
   }
 
   /**
@@ -254,5 +305,117 @@ export class PortfolioService {
    */
   isRefreshInProgress(): boolean {
     return this.refreshInProgress;
+  }
+
+  /**
+   * Initializes error handling strategies
+   */
+  private initializeErrorHandling(): void {
+    // Register recovery strategies for portfolio operations
+    this.errorHandler.registerRecoveryStrategy('getPortfolio', {
+      strategy: 'retry' as any,
+      maxAttempts: 2,
+      backoffMs: 1000,
+      degradedFunction: async () => {
+        // Return cached portfolio data if available
+        const cached = this.degradationManager.getFallbackData('portfolio');
+        if (cached) {
+          return {
+            ...cached.data,
+            status: 'degraded' as PortfolioStatus,
+            lastUpdated: cached.timestamp,
+            warning: 'Portfolio data may be outdated due to connectivity issues'
+          };
+        }
+        return this.createEmptyPortfolio();
+      }
+    });
+
+    this.errorHandler.registerRecoveryStrategy('refreshBalances', {
+      strategy: 'retry' as any,
+      maxAttempts: 3,
+      backoffMs: 2000,
+      fallbackFunction: async () => {
+        // Try to get partial data from healthy venues only
+        const partialPortfolio = await this.getPartialPortfolio();
+        this.cachedPortfolio = partialPortfolio;
+        this.lastRefresh = new Date();
+      }
+    });
+  }
+
+  /**
+   * Gets partial portfolio from healthy venues only
+   */
+  private async getPartialPortfolio(): Promise<Portfolio> {
+    const venueHoldings: VenueHolding[] = [];
+    let totalGrams = 0;
+
+    for (const [venueId, venue] of this.venues) {
+      try {
+        const connectorStatus = venue.connector.getStatus();
+        if (connectorStatus.status === 'healthy') {
+          const venueHolding = await this.getVenueHoldings(venue);
+          venueHoldings.push(venueHolding);
+          totalGrams += venueHolding.holdings.reduce((sum, holding) => sum + holding.gramsEquivalent, 0);
+        }
+      } catch (error) {
+        // Skip unhealthy venues
+        continue;
+      }
+    }
+
+    return {
+      totalGrams,
+      venues: venueHoldings,
+      lastUpdated: new Date(),
+      status: 'degraded' as PortfolioStatus
+    };
+  }
+
+  /**
+   * Gets current state for recovery purposes
+   */
+  async getState(): Promise<Record<string, any>> {
+    return {
+      venues: Array.from(this.venues.entries()).map(([id, venue]) => ({
+        id,
+        name: venue.name,
+        type: venue.type
+      })),
+      cachedPortfolio: this.cachedPortfolio,
+      lastRefresh: this.lastRefresh?.toISOString(),
+      refreshInProgress: this.refreshInProgress,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  /**
+   * Restores state from recovery data
+   */
+  async setState(state: Record<string, any>): Promise<void> {
+    if (state.cachedPortfolio) {
+      this.cachedPortfolio = state.cachedPortfolio;
+    }
+    if (state.lastRefresh) {
+      this.lastRefresh = new Date(state.lastRefresh);
+    }
+    if (typeof state.refreshInProgress === 'boolean') {
+      this.refreshInProgress = state.refreshInProgress;
+    }
+  }
+
+  /**
+   * Creates a recovery point
+   */
+  async createRecoveryPoint(description: string): Promise<string> {
+    const components = new Map([['PortfolioService', this]]);
+    const snapshotId = await this.stateRecoveryManager.createStateSnapshot(components, {
+      description,
+      venueCount: this.venues.size,
+      hasCachedPortfolio: !!this.cachedPortfolio
+    });
+    
+    return this.stateRecoveryManager.createRecoveryPoint(snapshotId, description);
   }
 }
