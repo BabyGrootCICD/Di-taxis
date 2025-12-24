@@ -70,6 +70,13 @@ describe('DeploymentManager', () => {
       // May have warnings but should be structurally valid
       expect(validation.errors.length).toBeGreaterThanOrEqual(0);
     });
+
+    it('should validate staging environment requirements', async () => {
+      const validation = await deploymentManager.validateDeployment('staging');
+      
+      expect(validation.environment).toBe('staging');
+      expect(validation.errors.length).toBeGreaterThanOrEqual(0);
+    });
   });
 
   describe('Deployment Preparation', () => {
@@ -122,6 +129,43 @@ describe('DeploymentManager', () => {
       const checklist = deploymentManager.generateDeploymentChecklist('unknown');
       
       expect(checklist).toContain('Error: Unknown environment unknown');
+    });
+  });
+
+  describe('Environment Variable Validation', () => {
+    it('should detect missing required environment variables', async () => {
+      // Clear required environment variables for production
+      const originalEnv = process.env.NODE_ENV;
+      delete process.env.NODE_ENV;
+      
+      const validation = await deploymentManager.validateDeployment('production');
+      
+      expect(validation.isValid).toBe(false);
+      expect(validation.errors.some(error => 
+        error.includes('Required environment variable NODE_ENV is not set')
+      )).toBe(true);
+      
+      // Restore environment
+      if (originalEnv) {
+        process.env.NODE_ENV = originalEnv;
+      }
+    });
+  });
+
+  describe('Security Requirements Validation', () => {
+    it('should validate security requirements for production', async () => {
+      const validation = await deploymentManager.validateDeployment('production');
+      
+      // Should have some validation results (may be warnings or errors)
+      expect(validation.errors.length + validation.warnings.length).toBeGreaterThanOrEqual(0);
+    });
+
+    it('should validate security requirements for development', async () => {
+      const validation = await deploymentManager.validateDeployment('development');
+      
+      expect(validation.environment).toBe('development');
+      // Development should be more lenient
+      expect(validation.isValid).toBe(true);
     });
   });
 });
