@@ -3,6 +3,9 @@
  */
 
 import * as crypto from 'crypto';
+import { DataClassifier } from './DataClassifier';
+import { SecurityEventDetector, SecurityEventContext, SecurityEventType } from './SecurityEventDetector';
+import { InputValidator } from './InputValidator';
 
 export interface ApiCredentials {
   apiKey: string;
@@ -34,17 +37,30 @@ export class SecurityManager {
   private readonly ivLength = 16; // 128 bits
   private readonly masterKey: Buffer;
   private readonly credentialStore: Map<string, StoredCredentials> = new Map();
+  private readonly dataClassifier: DataClassifier;
+  private readonly securityEventDetector: SecurityEventDetector;
+  private readonly inputValidator: InputValidator;
 
   constructor(masterKey?: Buffer) {
     // In production, this should come from secure key management
     this.masterKey = masterKey || crypto.randomBytes(this.keyLength);
+    this.dataClassifier = new DataClassifier();
+    this.securityEventDetector = new SecurityEventDetector();
+    this.inputValidator = new InputValidator();
   }
 
   /**
    * Validates API credentials to ensure they have trade-only permissions
    */
   validateCredentials(credentials: ApiCredentials): CredentialValidationResult {
+    // Basic null/undefined check first
     if (!credentials.apiKey || !credentials.secret) {
+      this.logSecurityEvent(SecurityEventType.INVALID_INPUT, {
+        action: 'validateCredentials',
+        validationFailed: true,
+        reason: 'Missing credentials'
+      });
+      
       return {
         isValid: false,
         hasTradeOnlyPermissions: false,
@@ -54,8 +70,59 @@ export class SecurityManager {
       };
     }
 
+    // Trim whitespace and check for empty strings
+    const trimmedApiKey = credentials.apiKey.trim();
+    const trimmedSecret = credentials.secret.trim();
+    
+    if (trimmedApiKey.length === 0 || trimmedSecret.length === 0) {
+      this.logSecurityEvent(SecurityEventType.INVALID_INPUT, {
+        action: 'validateCredentials',
+        validationFailed: true,
+        reason: 'Empty credentials after trimming'
+      });
+      
+      return {
+        isValid: false,
+        hasTradeOnlyPermissions: false,
+        hasWithdrawalPermissions: false,
+        permissions: [],
+        errorMessage: 'API key and secret cannot be empty or whitespace only'
+      };
+    }
+
+    // Use trimmed values for validation
+    const trimmedCredentials = {
+      ...credentials,
+      apiKey: trimmedApiKey,
+      secret: trimmedSecret
+    };
+
+    // Validate input format
+    const inputValidation = this.inputValidator.validateApiCredentials(trimmedCredentials);
+    if (!inputValidation.isValid) {
+      this.logSecurityEvent(SecurityEventType.INVALID_INPUT, {
+        action: 'validateCredentials',
+        validationFailed: true,
+        errors: inputValidation.errors
+      });
+      
+      return {
+        isValid: false,
+        hasTradeOnlyPermissions: false,
+        hasWithdrawalPermissions: false,
+        permissions: [],
+        errorMessage: inputValidation.errors.map(e => e.message).join(', ')
+      };
+    }
+
     // Check if credentials have proper format (basic validation)
-    if (credentials.apiKey.length < 10 || credentials.secret.length < 10) {
+    if (trimmedCredentials.apiKey.length < 10 || trimmedCredentials.secret.length < 10) {
+      this.logSecurityEvent(SecurityEventType.INVALID_INPUT, {
+        action: 'validateCredentials',
+        validationFailed: true,
+        reason: 'Invalid format'
+      });
+      
       return {
         isValid: false,
         hasTradeOnlyPermissions: false,
@@ -74,6 +141,15 @@ export class SecurityManager {
         perm.toLowerCase().includes(withdrawPerm)
       )
     );
+
+    // Log security event if withdrawal permissions detected
+    if (hasWithdrawalPermissions) {
+      this.logSecurityEvent(SecurityEventType.CREDENTIAL_MISUSE, {
+        action: 'validateCredentials',
+        hasWithdrawalPermissions: true,
+        permissions: this.dataClassifier.applyRedactionPolicies({ permissions }, 'logging').permissions
+      });
+    }
 
     // Check for trade permissions (these SHOULD be present)
     const tradePermissions = ['trade', 'trading', 'order', 'buy', 'sell'];
@@ -102,6 +178,12 @@ export class SecurityManager {
     // Validate credentials first
     const validation = this.validateCredentials(credentials);
     if (!validation.isValid) {
+      this.logSecurityEvent(SecurityEventType.AUTHORIZATION_VIOLATION, {
+        action: 'storeCredentials',
+        venueId,
+        hasPermission: false,
+        reason: validation.errorMessage
+      });
       throw new Error(`Invalid credentials: ${validation.errorMessage}`);
     }
 
@@ -133,6 +215,13 @@ export class SecurityManager {
     };
 
     this.credentialStore.set(venueId, storedCredentials);
+    
+    // Log successful credential storage (without exposing secrets)
+    this.logSecurityEvent(SecurityEventType.AUTHENTICATION_FAILURE, {
+      action: 'storeCredentials',
+      venueId,
+      success: true
+    });
   }
 
   /**
@@ -141,6 +230,12 @@ export class SecurityManager {
   retrieveCredentials(venueId: string): ApiCredentials | null {
     const stored = this.credentialStore.get(venueId);
     if (!stored) {
+      this.logSecurityEvent(SecurityEventType.AUTHORIZATION_VIOLATION, {
+        action: 'retrieveCredentials',
+        venueId,
+        hasPermission: false,
+        reason: 'Credentials not found'
+      });
       return null;
     }
 
@@ -168,6 +263,13 @@ export class SecurityManager {
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      this.logSecurityEvent(SecurityEventType.SYSTEM_ANOMALY, {
+        action: 'retrieveCredentials',
+        venueId,
+        error: errorMessage
+      });
+      
       throw new Error(`Failed to decrypt credentials for venue ${venueId}: ${errorMessage}`);
     }
   }
@@ -225,7 +327,15 @@ export class SecurityManager {
    * Removes stored credentials for a venue
    */
   removeCredentials(venueId: string): boolean {
-    return this.credentialStore.delete(venueId);
+    const removed = this.credentialStore.delete(venueId);
+    if (removed) {
+      this.logSecurityEvent(SecurityEventType.AUTHENTICATION_FAILURE, {
+        action: 'removeCredentials',
+        venueId,
+        success: true
+      });
+    }
+    return removed;
   }
 
   /**
@@ -240,5 +350,38 @@ export class SecurityManager {
    */
   hasCredentials(venueId: string): boolean {
     return this.credentialStore.has(venueId);
+  }
+
+  /**
+   * Gets the data classifier instance
+   */
+  getDataClassifier(): DataClassifier {
+    return this.dataClassifier;
+  }
+
+  /**
+   * Gets the security event detector instance
+   */
+  getSecurityEventDetector(): SecurityEventDetector {
+    return this.securityEventDetector;
+  }
+
+  /**
+   * Gets the input validator instance
+   */
+  getInputValidator(): InputValidator {
+    return this.inputValidator;
+  }
+
+  private logSecurityEvent(eventType: SecurityEventType, details: Record<string, any>): void {
+    const context: SecurityEventContext = {
+      action: details.action || 'unknown',
+      resource: 'credentials',
+      parameters: this.dataClassifier.applyRedactionPolicies(details, 'logging'),
+      timestamp: new Date(),
+      venueId: details.venueId
+    };
+
+    this.securityEventDetector.detectSecurityEvents(context);
   }
 }

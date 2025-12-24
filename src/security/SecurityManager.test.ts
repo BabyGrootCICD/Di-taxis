@@ -17,8 +17,8 @@ describe('SecurityManager Property Tests', () => {
       fc.property(
         // Generate API credentials with various permission combinations
         fc.record({
-          apiKey: fc.string({ minLength: 10, maxLength: 100 }),
-          secret: fc.string({ minLength: 10, maxLength: 100 }),
+          apiKey: fc.stringMatching(/^[A-Za-z0-9_-]{10,50}$/),
+          secret: fc.stringMatching(/^[A-Za-z0-9_-]{10,50}$/),
           permissions: fc.option(
             fc.array(
               fc.oneof(
@@ -83,8 +83,8 @@ describe('SecurityManager Property Tests', () => {
       fc.property(
         fc.string({ minLength: 1, maxLength: 50 }), // venueId
         fc.record({
-          apiKey: fc.string({ minLength: 10, maxLength: 100 }),
-          secret: fc.string({ minLength: 10, maxLength: 100 }),
+          apiKey: fc.stringMatching(/^[A-Za-z0-9_-]{10,50}$/),
+          secret: fc.stringMatching(/^[A-Za-z0-9_-]{10,50}$/),
           permissions: fc.option(
             fc.array(
               // Only generate valid trade-only permissions
@@ -97,26 +97,26 @@ describe('SecurityManager Property Tests', () => {
         (venueId: string, credentials: ApiCredentials) => {
           const securityManager = new SecurityManager();
           
-          // Only test with credentials that would pass validation
-          const validation = securityManager.validateCredentials(credentials);
-          
-          // Skip invalid credentials for this property test
-          fc.pre(validation.isValid);
-          
-          // Store credentials
-          securityManager.storeCredentials(venueId, credentials);
-          
-          // Retrieve credentials
-          const retrieved = securityManager.retrieveCredentials(venueId);
-          
-          // Round-trip property: stored and retrieved credentials should match
-          expect(retrieved).not.toBeNull();
-          expect(retrieved!.apiKey).toBe(credentials.apiKey);
-          expect(retrieved!.secret).toBe(credentials.secret);
-          expect(retrieved!.permissions).toEqual(credentials.permissions);
-          
-          // Verify credentials are actually stored (not just returned from memory)
-          expect(securityManager.hasCredentials(venueId)).toBe(true);
+          // Store credentials (this will validate them first)
+          try {
+            securityManager.storeCredentials(venueId, credentials);
+            
+            // Retrieve credentials
+            const retrieved = securityManager.retrieveCredentials(venueId);
+            
+            // Round-trip property: stored and retrieved credentials should match
+            expect(retrieved).not.toBeNull();
+            expect(retrieved!.apiKey).toBe(credentials.apiKey.trim());
+            expect(retrieved!.secret).toBe(credentials.secret.trim());
+            expect(retrieved!.permissions).toEqual(credentials.permissions);
+            
+            // Verify credentials are actually stored (not just returned from memory)
+            expect(securityManager.hasCredentials(venueId)).toBe(true);
+          } catch (error) {
+            // If storage fails, it should be due to invalid credentials
+            const validation = securityManager.validateCredentials(credentials);
+            expect(validation.isValid).toBe(false);
+          }
         }
       ),
       { numRuns: 100 }
@@ -132,8 +132,8 @@ describe('SecurityManager Property Tests', () => {
       fc.property(
         fc.string({ minLength: 1, maxLength: 50 }), // venueId
         fc.record({
-          apiKey: fc.string({ minLength: 10, maxLength: 100 }),
-          secret: fc.string({ minLength: 10, maxLength: 100 }),
+          apiKey: fc.stringMatching(/^[A-Za-z0-9_-]{10,50}$/),
+          secret: fc.stringMatching(/^[A-Za-z0-9_-]{10,50}$/),
           permissions: fc.option(
             fc.array(
               fc.oneof(
@@ -193,7 +193,9 @@ describe('SecurityManager Property Tests', () => {
       invalidCredentials.forEach(creds => {
         const result = securityManager.validateCredentials(creds);
         expect(result.isValid).toBe(false);
-        expect(result.errorMessage).toContain('API key and secret are required');
+        expect(result.errorMessage).toBeDefined();
+        // The error message will come from InputValidator now
+        expect(result.errorMessage).toMatch(/required|Field/);
       });
     });
 
@@ -208,7 +210,9 @@ describe('SecurityManager Property Tests', () => {
       shortCredentials.forEach(creds => {
         const result = securityManager.validateCredentials(creds);
         expect(result.isValid).toBe(false);
-        expect(result.errorMessage).toContain('invalid format');
+        expect(result.errorMessage).toBeDefined();
+        // The error message will come from InputValidator now
+        expect(result.errorMessage).toMatch(/characters|length|format/);
       });
     });
 
