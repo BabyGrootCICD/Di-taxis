@@ -418,7 +418,10 @@
   - Add system state recovery after failures
   - _Requirements: 1.4, 3.4, 4.4_
 
-- [ ] 17. Implement balance discrepancy detection
+- [-] 17. Implement balance discrepancy detection
+
+
+
   - Add balance reconciliation logic between venues and on-chain data
   - Implement discrepancy detection algorithms
   - Add user notification system for flagged inconsistencies

@@ -12,6 +12,7 @@ import { ErrorHandler, ApplicationError, ErrorCategory, ErrorSeverity } from '..
 import { GracefulDegradationManager, ServiceCapability } from '../utils/GracefulDegradationManager';
 import { StateRecoveryManager } from '../utils/StateRecoveryManager';
 import { AuditService } from './AuditService';
+import { BalanceDiscrepancyDetector, BalanceDiscrepancy } from './BalanceDiscrepancyDetector';
 
 export interface VenueConnector {
   id: string;
@@ -37,6 +38,8 @@ export class PortfolioService {
   private degradationManager: GracefulDegradationManager;
   private stateRecoveryManager: StateRecoveryManager;
   private auditService: AuditService;
+  private discrepancyDetector?: BalanceDiscrepancyDetector;
+  private addressMappings: Map<string, { address: string; chainId: string; tokenContract: string }> = new Map();
 
   constructor(
     auditService: AuditService,
@@ -50,6 +53,47 @@ export class PortfolioService {
     this.stateRecoveryManager = stateRecoveryManager || new StateRecoveryManager(auditService);
     
     this.initializeErrorHandling();
+  }
+
+  /**
+   * Set the balance discrepancy detector
+   */
+  setDiscrepancyDetector(detector: BalanceDiscrepancyDetector): void {
+    this.discrepancyDetector = detector;
+  }
+
+  /**
+   * Add address mapping for discrepancy detection
+   */
+  addAddressMapping(
+    venueId: string,
+    symbol: string,
+    address: string,
+    chainId: string,
+    tokenContract: string
+  ): void {
+    const key = `${venueId}-${symbol}`;
+    this.addressMappings.set(key, { address, chainId, tokenContract });
+  }
+
+  /**
+   * Remove address mapping
+   */
+  removeAddressMapping(venueId: string, symbol: string): void {
+    const key = `${venueId}-${symbol}`;
+    this.addressMappings.delete(key);
+  }
+
+  /**
+   * Get balance discrepancies for current portfolio
+   */
+  async getBalanceDiscrepancies(): Promise<BalanceDiscrepancy[]> {
+    if (!this.discrepancyDetector) {
+      return [];
+    }
+
+    const portfolio = await this.getPortfolio();
+    return await this.discrepancyDetector.detectDiscrepancies(portfolio, this.addressMappings);
   }
 
   /**
@@ -183,6 +227,18 @@ export class PortfolioService {
       };
       
       this.lastRefresh = new Date();
+      
+      // Check for balance discrepancies if detector is available
+      if (this.discrepancyDetector && this.addressMappings.size > 0) {
+        try {
+          await this.discrepancyDetector.detectDiscrepancies(this.cachedPortfolio, this.addressMappings);
+        } catch (error) {
+          // Log discrepancy detection error but don't fail the refresh
+          await this.auditService.logSecurityEvent('discrepancy_detection_failed', {
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
+        }
+      }
     } finally {
       this.refreshInProgress = false;
     }
