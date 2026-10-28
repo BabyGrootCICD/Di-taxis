@@ -50,6 +50,7 @@
   },
   "homepage": "https://github.com/BabyGrootCICD/Di-taxis#readme",
   "overrides": {
-    "tinypool": "^2.1.2"
+    "tinypool": "^2.1.2",
+    "vite": "^6.4.4"
   }
 }
