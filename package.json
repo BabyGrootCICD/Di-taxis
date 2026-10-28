@@ -48,5 +48,8 @@
   "bugs": {
     "url": "https://github.com/BabyGrootCICD/Di-taxis/issues"
   },
-  "homepage": "https://github.com/BabyGrootCICD/Di-taxis#readme"
+  "homepage": "https://github.com/BabyGrootCICD/Di-taxis#readme",
+  "overrides": {
+    "tinypool": "^2.1.2"
+  }
 }
