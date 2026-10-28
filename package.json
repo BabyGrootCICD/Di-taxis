@@ -51,6 +51,7 @@
   "homepage": "https://github.com/BabyGrootCICD/Di-taxis#readme",
   "overrides": {
     "tinypool": "^2.1.2",
-    "vite": "^6.4.4"
+    "vite": "^6.4.4",
+    "brace-expansion": "^2.1.7"
   }
 }
