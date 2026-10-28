@@ -59,6 +59,7 @@
     "nanoid": "^3.3.18",
     "flatted": "^3.4.2",
     "picomatch": "^2.3.2",
-    "rollup": "^4.59.0"
+    "rollup": "^4.59.0",
+    "source-map-js": "^1.2.2"
   }
 }
